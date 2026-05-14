@@ -10,6 +10,7 @@ import { countsCollection } from '../api/countCollection';
 import { Validador } from '../libs/Validador';
 import { segurancaApi } from '../security/api/segurancaApi';
 import { WebApp } from 'meteor/webapp';
+import { randomBytes } from 'crypto';
 // @ts-ignore
 import bodyParser from 'body-parser';
 // @ts-ignore
@@ -25,8 +26,63 @@ import { IUserProfile } from '../modules/userprofile/api/userProfileSch';
 import Selector = Mongo.Selector;
 import { getUserServer } from '../modules/userprofile/api/userProfileServerApi';
 
-WebApp.connectHandlers.use(cors());
-WebApp.connectHandlers.use(bodyParser.json({ limit: '50mb' }));
+const maxPublicationLimit = Number(process.env.MAX_PUBLICATION_LIMIT || 500);
+const maxCounterLimit = Number(process.env.MAX_COUNTER_LIMIT || 10000);
+const maxExportLimit = Number(process.env.MAX_EXPORT_LIMIT || 5000);
+const maxThumbnailDimension = Number(process.env.MAX_THUMBNAIL_DIMENSION || 1200);
+const jsonBodyLimit = process.env.JSON_BODY_LIMIT || '5mb';
+const mediaAccessToken = encodeURIComponent(process.env.MEDIA_ACCESS_TOKEN || randomBytes(32).toString('hex'));
+const mediaTokenEnabled = process.env.DISABLE_MEDIA_TOKEN !== 'true';
+
+const absoluteOrigin = new URL(Meteor.absoluteUrl()).origin;
+const allowedCorsOrigins = (process.env.CORS_ORIGINS || '')
+	.split(',')
+	.map((origin) => origin.trim())
+	.filter(Boolean);
+const defaultAllowedCorsOrigins = new Set([absoluteOrigin, 'http://localhost:3000', 'http://127.0.0.1:3000']);
+allowedCorsOrigins.forEach((origin) => defaultAllowedCorsOrigins.add(origin));
+
+const clampLimit = (limit: number | undefined, defaultLimit = maxPublicationLimit, maxLimit = maxPublicationLimit) => {
+	if (limit === 0) return 0;
+	if (!limit || limit < 0) return defaultLimit;
+	return Math.min(limit, maxLimit);
+};
+
+const parseThumbnailDimension = (value: string | undefined) => {
+	const [width, height] = (value || '200x200').split('x').map((n: string) => Number.parseInt(n, 10));
+	const clampDimension = (dimension: number) =>
+		Number.isFinite(dimension) && dimension > 0 ? Math.min(dimension, maxThumbnailDimension) : undefined;
+
+	return [clampDimension(width) || 200, clampDimension(height) || 200];
+};
+
+export const getMediaAccessQuery = () => (mediaTokenEnabled ? `token=${mediaAccessToken}&` : '');
+
+const isMediaRequestAllowed = (req: any) => {
+	if (!mediaTokenEnabled) return true;
+	return req?.query?.token === mediaAccessToken || req?.headers?.['x-media-token'] === mediaAccessToken;
+};
+
+const writeMediaAccessDenied = (res: any) => {
+	res.writeHead(403, { 'Content-Type': 'text/plain' });
+	res.end('Access denied');
+};
+
+const isAdmin = (user?: IUserProfile | null) => user?.roles?.includes('Administrador') || false;
+
+WebApp.connectHandlers.use(
+	cors({
+		credentials: true,
+		origin(origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) {
+			if (!origin || defaultAllowedCorsOrigins.has('*') || defaultAllowedCorsOrigins.has(origin)) {
+				callback(null, true);
+				return;
+			}
+			callback(new Error('Origin not allowed by CORS'));
+		}
+	})
+);
+WebApp.connectHandlers.use(bodyParser.json({ limit: jsonBodyLimit }));
 
 const getNoImage = (isAvatar = false) => {
 	if (!isAvatar) {
@@ -164,7 +220,7 @@ export class ServerApiBase<Doc extends IDoc> {
 		this.initApiRest();
 		this.registerPublications(options);
 		this.registerAllMethods();
-		
+
 		// this.createAPIRESTForAudioFields();
 		// this.createAPIRESTForIMGFields();
 		// this.createAPIRESTThumbnailForIMGFields(sharp);
@@ -220,7 +276,12 @@ export class ServerApiBase<Doc extends IDoc> {
 	/**
 	 * @returns {String} - Return the number of documents from a collection.
 	 */
-	async countDocuments() {
+	async countDocuments(_context?: IContext) {
+		if (_context && this.defaultResources && this.defaultResources[`${this.collectionName?.toUpperCase()}_VIEW`]) {
+			segurancaApi.validarAcessoRecursos(_context.user, [
+				this.defaultResources[`${this.collectionName?.toUpperCase()}_VIEW`]
+			]);
+		}
 		return await this.getCollectionInstance().find().countAsync();
 	}
 
@@ -370,7 +431,8 @@ export class ServerApiBase<Doc extends IDoc> {
 	 * @param defaultUser
 	 */
 	async _includeAuditData(doc: Doc | Partial<Doc>, action: string, defaultUser: string = 'Anonymous') {
-		const userId = (await getUserServer()) ? await getUserServer()?._id : defaultUser;
+		const user = await getUserServer();
+		const userId = user?._id || defaultUser;
 		if (action === 'insert') {
 			doc.createdby = userId;
 			doc.createdat = new Date();
@@ -598,6 +660,10 @@ export class ServerApiBase<Doc extends IDoc> {
 					this.apiRestAudio &&
 						this.apiRestAudio.addRoute(`${this.collectionName}/${field}/:audio`, async (req: any, res: any) => {
 							const { params } = req;
+							if (!isMediaRequestAllowed(req)) {
+								writeMediaAccessDenied(res);
+								return;
+							}
 
 							if (params && !!params.audio) {
 								const docID =
@@ -659,6 +725,10 @@ export class ServerApiBase<Doc extends IDoc> {
 					this.apiRestImage &&
 						this.apiRestImage.addRoute(`${this.collectionName}/${field}/:image`, async (req: any, res: any) => {
 							const { params } = req;
+							if (!isMediaRequestAllowed(req)) {
+								writeMediaAccessDenied(res);
+								return;
+							}
 
 							if (params && !!params.image) {
 								const docID =
@@ -713,8 +783,12 @@ export class ServerApiBase<Doc extends IDoc> {
 							`${this.collectionName}/${field}/:image`,
 							async (req: any, res: any) => {
 								const { params, query } = req;
+								if (!isMediaRequestAllowed(req)) {
+									writeMediaAccessDenied(res);
+									return;
+								}
 
-								const widthAndHeight = query.d ? query.d.split('x').map((n: string) => parseInt(n)) : [200, 200];
+								const widthAndHeight = parseThumbnailDimension(query.d);
 
 								if (params && !!params.image) {
 									const docID =
@@ -755,7 +829,7 @@ export class ServerApiBase<Doc extends IDoc> {
 											//To Save Base64 IMG
 											// return `data:${mimType};base64,${resizedImage.toString("base64")}`
 										} catch (error) {
-											res.writeHead(200);
+											res.writeHead(422);
 											res.end();
 											return;
 										}
@@ -764,6 +838,9 @@ export class ServerApiBase<Doc extends IDoc> {
 									res.end();
 									return;
 								}
+								res.writeHead(404);
+								res.end();
+								return;
 							}
 						);
 				}
@@ -876,7 +953,7 @@ export class ServerApiBase<Doc extends IDoc> {
 	//**DEFAULT PUBLICATIONS**
 	async defaultCollectionPublication(filter = {}, optionsPub: Partial<IMongoOptions<Doc>>) {
 		if (!optionsPub) {
-			optionsPub = { limit: 999999, skip: 0 };
+			optionsPub = { limit: maxPublicationLimit, skip: 0 };
 		}
 
 		if (optionsPub.skip! < 0) {
@@ -884,8 +961,9 @@ export class ServerApiBase<Doc extends IDoc> {
 		}
 
 		if (optionsPub.limit! < 0) {
-			optionsPub.limit = 999999;
+			optionsPub.limit = maxPublicationLimit;
 		}
+		optionsPub.limit = clampLimit(optionsPub.limit, maxPublicationLimit, maxPublicationLimit);
 
 		if (!optionsPub.projection && !!optionsPub.fields) {
 			optionsPub.projection = optionsPub.fields;
@@ -926,7 +1004,7 @@ export class ServerApiBase<Doc extends IDoc> {
 							$concat: [
 								`${Meteor.absoluteUrl()}img/${this.collectionName}/${field}/`,
 								'$_id',
-								'?date=',
+								`?${getMediaAccessQuery()}date=`,
 								{ $toString: '$lastupdate' }
 							]
 						},
@@ -940,7 +1018,7 @@ export class ServerApiBase<Doc extends IDoc> {
 							$concat: [
 								`${Meteor.absoluteUrl()}thumbnail/${this.collectionName}/${field}/`,
 								'$_id',
-								'?date=',
+								`?${getMediaAccessQuery()}date=`,
 								{ $toString: '$lastupdate' }
 							]
 						},
@@ -957,7 +1035,7 @@ export class ServerApiBase<Doc extends IDoc> {
 							$concat: [
 								`${Meteor.absoluteUrl()}audio/${this.collectionName}/${field}/`,
 								'$_id',
-								'?date=',
+								`?${getMediaAccessQuery()}date=`,
 								{ $toString: '$lastupdate' }
 							]
 						},
@@ -969,7 +1047,7 @@ export class ServerApiBase<Doc extends IDoc> {
 
 		const queryOptions = {
 			fields: { ...optionsPub.projection, ...imgFields },
-			limit: optionsPub.limit || 999999999,
+			limit: clampLimit(optionsPub.limit, maxPublicationLimit, maxPublicationLimit),
 			skip: optionsPub.skip || 0,
 			sort: {}
 		};
@@ -986,7 +1064,7 @@ export class ServerApiBase<Doc extends IDoc> {
 			// `observeChanges` only returns after the initial `added` callbacks have run.
 			// Until then, we don't want to send a lot of `changed` messages—hence
 			// tracking the `initializing` state.
-			let handlePub = await collection.publications[publishName](...params, { limit: 999999999 });
+			let handlePub = await collection.publications[publishName](...params, { limit: maxCounterLimit });
 			if (handlePub) {
 				if (Array.isArray(handlePub)) {
 					handlePub = handlePub[0];
@@ -995,7 +1073,7 @@ export class ServerApiBase<Doc extends IDoc> {
 				let loaded = false;
 
 				if (!!handlePub) {
-					handlePub.observeChanges(
+					const observer = await handlePub.observeChanges(
 						{
 							added: () => {
 								if (loaded) {
@@ -1016,12 +1094,17 @@ export class ServerApiBase<Doc extends IDoc> {
 							nonMutatingCallbacks: true
 						}
 					);
-					count = handlePub.countAsync(false);
+					count = await handlePub.countAsync(false);
 					// @ts-ignore
 					this.added('counts', `${publishName}Total`, { count });
 					loaded = true;
 					// @ts-ignore
 					this.ready();
+					this.onStop(() => {
+						if (observer && typeof observer.stop === 'function') {
+							observer.stop();
+						}
+					});
 					return;
 				} else {
 					// @ts-ignore
@@ -1181,8 +1264,12 @@ export class ServerApiBase<Doc extends IDoc> {
 		this.registerMethod('exportCollection', this.exportCollection);
 	}
 
-	exportCollection = async () => {
-		return await this.getCollectionInstance().find({}).fetchAsync();
+	exportCollection = async (_context: IContext) => {
+		if (!isAdmin(_context?.user) && process.env.ALLOW_COLLECTION_EXPORT !== 'true') {
+			throw new Meteor.Error('Acesso negado', 'Somente administradores podem exportar coleções.');
+		}
+
+		return await this.getCollectionInstance().find({}, { limit: maxExportLimit }).fetchAsync();
 	};
 
 	/**
@@ -1466,8 +1553,24 @@ export class ServerApiBase<Doc extends IDoc> {
 	 * @param  {Object} optionsPub - Options Publication, like publications.
 	 * @returns {Array} - Array of documents.
 	 */
-	async serverGetDocs(publicationName = 'default', filter = {}, optionsPub: IMongoOptions<Doc>) {
-		const result = this.publications[publicationName](filter, optionsPub);
+	async serverGetDocs(publicationName = 'default', filter = {}, optionsPub: IMongoOptions<Doc>, _context: IContext) {
+		if (!this.publications[publicationName] || typeof this.publications[publicationName] !== 'function') {
+			throw new Meteor.Error('Publicação inválida', `A publicação "${publicationName}" não existe.`);
+		}
+
+		if (this.defaultResources && this.defaultResources[`${this.collectionName?.toUpperCase()}_VIEW`]) {
+			segurancaApi.validarAcessoRecursos(_context.user, [
+				this.defaultResources[`${this.collectionName?.toUpperCase()}_VIEW`]
+			]);
+		}
+
+		const safeOptions = {
+			...(optionsPub || {}),
+			limit: clampLimit(optionsPub?.limit, maxPublicationLimit, maxPublicationLimit),
+			skip: Math.max(optionsPub?.skip || 0, 0)
+		};
+
+		const result = this.publications[publicationName](filter, safeOptions);
 		if (result) {
 			return await result.fetchAsync();
 		} else {

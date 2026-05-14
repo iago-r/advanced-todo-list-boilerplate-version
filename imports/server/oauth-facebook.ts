@@ -1,17 +1,18 @@
 // server/imports/oauth-facebook.js
 
 import { ServiceConfiguration } from 'meteor/service-configuration';
+import { Accounts } from 'meteor/accounts-base';
 import { OAuth } from 'meteor/oauth';
 import { HTTP } from 'meteor/http';
 import crypto from 'crypto';
 import _ from 'lodash';
-import settings from '../../settings.json';
+import { serverSettings as settings } from '/imports/config/serverSettings';
 
 const whitelistedFields = ['id', 'email', 'name', 'first_name', 'last_name', 'link', 'gender', 'locale', 'age_range'];
 
 // Taken from Meteor 1.5.1 facebook-oauth
-const getIdentity = (accessToken, fields) => {
-	const config = ServiceConfiguration.configurations.findOne({
+const getIdentity = async (accessToken, fields) => {
+	const config = await ServiceConfiguration.configurations.findOneAsync({
 		service: 'facebook'
 	});
 
@@ -31,15 +32,15 @@ const getIdentity = (accessToken, fields) => {
 			}
 		}).data;
 	} catch (err) {
-		throw _.extend(new Error(`Failed to fetch identity from Facebook. ${err.message}`), {
+		throw Object.assign(new Error(`Failed to fetch identity from Facebook. ${err.message}`), {
 			response: err.response
 		});
 	}
 };
 
 // Taken from Meteor 1.5.1 facebook-oauth
-const handleAuthFromAccessToken = (accessToken, expiresAt) => {
-	const identity = getIdentity(accessToken, whitelistedFields);
+const handleAuthFromAccessToken = async (accessToken, expiresAt) => {
+	const identity = await getIdentity(accessToken, whitelistedFields);
 
 	const serviceData = {
 		accessToken,
@@ -47,7 +48,7 @@ const handleAuthFromAccessToken = (accessToken, expiresAt) => {
 	};
 
 	const fields = _.pick(identity, whitelistedFields);
-	_.extend(serviceData, fields);
+	Object.assign(serviceData, fields);
 
 	return {
 		serviceData,
@@ -56,7 +57,7 @@ const handleAuthFromAccessToken = (accessToken, expiresAt) => {
 };
 
 const registerFacebookMobileLoginHandler = () => {
-	Accounts.registerLoginHandler('facebookMobileLogin', (params) => {
+	Accounts.registerLoginHandler('facebookMobileLogin', async (params) => {
 		const data = params.facebookMobileLogin;
 
 		console.log('>>>Data:', data);
@@ -65,7 +66,7 @@ const registerFacebookMobileLoginHandler = () => {
 			return undefined;
 		}
 
-		const identity = handleAuthFromAccessToken(data.accessToken, +new Date() + 1000 * data.expirationTime);
+		const identity = await handleAuthFromAccessToken(data.accessToken, +new Date() + 1000 * data.expirationTime);
 
 		console.log('>>>identity:', identity);
 
@@ -91,10 +92,10 @@ const registerFacebookMobileLoginHandler = () => {
 	});
 };
 
-const init = () => {
-	if (!settings || settings.settingsFacebook) return;
+const init = async () => {
+	if (!settings || !settings.settingsFacebook?.appId || !settings.settingsFacebook?.secret) return;
 
-	ServiceConfiguration.configurations.upsert(
+	await ServiceConfiguration.configurations.upsertAsync(
 		{ service: 'facebook' },
 		{
 			$set: {

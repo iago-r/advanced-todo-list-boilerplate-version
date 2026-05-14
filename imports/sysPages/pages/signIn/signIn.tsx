@@ -20,14 +20,18 @@ const SignInPage: React.FC = () => {
 
 	const handleSubmit = ({ email, password }: { email: string; password: string }) => {
 		signIn(email, password, (err) => {
-			if (!err) navigate('/');
+			if (!err) {
+				navigate('/');
+				return;
+			}
+
 			showNotification({
 				type: 'error',
 				title: 'Erro ao tentar logar',
-				message: 'Email ou senha inválidos',
+				message: 'Email ou senha inválidos'
 			});
 		});
-;	};
+	};
 
 	const handleForgotPassword = () => navigate('/password-recovery');
 

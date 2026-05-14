@@ -1,6 +1,6 @@
 import React, {ElementType} from 'react';
 import Box, {BoxProps} from '@mui/material/Box';
-import styled from '@mui/material/styles/styled';
+import { styled } from '@mui/material/styles';
 import Avatar, {AvatarProps} from '@mui/material/Avatar';
 import { sysSizing } from '../../materialui/styles';
 

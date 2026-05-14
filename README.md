@@ -35,7 +35,7 @@ Entre os principais benefícios de utilizar o **MeteorReactBaseMUI**, destacam-s
 - [Primeiros Passos](#primeiros-passos)
 - [Trabalhando com módulos](#trabalhando-com-modulos)
 - [Suporte Offline](#suporte-offline)
-- [Testes e Storybook](#testes-e-storybook)
+- [Testes](#testes)
 - [Contribuindo](#contribuindo)
 
 ## Requisitos
@@ -219,7 +219,7 @@ Mais detalhes sobre o funcionamento do service worker e estratégias de cache po
 
 Alguns módulos podem servir conteúdo otimizado para SEO. O diretório [`imports/ssr`](imports/ssr) reúne as funções para detectar crawlers e renderizar páginas em HTML. O módulo **ArchiText** é um exemplo prático: suas rotas em [`shareRoutes.ts`](imports/modules/architext/server/shareRoutes.ts) devolvem HTML completo quando o acesso é feito por robôs ou via `/share/artigos/:id`. Consulte [`docs/ssr.md`](docs/ssr.md) para implementar fluxos semelhantes em outros módulos.
 
-## Testes e Storybook
+## Testes
 
 Execute os testes unitarios com:
 
@@ -231,12 +231,6 @@ Para rodar os testes de integracao do Cypress utilize:
 
 ```bash
 npm run cypress:headless
-```
-
-Abra o Storybook para visualizar os componentes em isolamento com:
-
-```bash
-npm run storybook
 ```
 
 ## Próximos Passos / Para Onde Ir Agora?
@@ -261,4 +255,3 @@ O diretório [`docs/`](docs/) contém referências adicionais, incluindo os guia
 - [`docs/attachments.md`](docs/attachments.md) – gerenciamento de uploads com `ostrio:files`.
 - [`docs/analytics.md`](docs/analytics.md) – como capturar eventos de navegação e métodos.
 - [`docs/coding-patterns.md`](docs/coding-patterns.md) – resumo de padrões de código e arquitetura.
-

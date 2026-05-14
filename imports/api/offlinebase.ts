@@ -3,15 +3,18 @@ import { parse, stringify } from 'zipson';
 import { ReactiveVar } from 'meteor/reactive-var';
 import { _ } from 'lodash';
 
-import settings from '../../settings.json';
+import { publicSettings } from '/imports/config/publicSettings';
 import { ApiBase } from './base';
 
 class PersistentMinimongoStorage {
 	constructor(collectionName, collectionInstance) {
 		const self = this;
 		self.collectionName = collectionName;
-		self.customStore = new createStore(`${settings.name}_${collectionName}`, `${collectionName}-store`);
-		self.controlStore = new createStore(`${settings.name}_${collectionName}_Control`, `${collectionName}-control`);
+		self.customStore = new createStore(`${publicSettings.name}_${collectionName}`, `${collectionName}-store`);
+		self.controlStore = new createStore(
+			`${publicSettings.name}_${collectionName}_Control`,
+			`${collectionName}-control`
+		);
 		self.collection = collectionInstance;
 
 		self.inited = new ReactiveVar(false);

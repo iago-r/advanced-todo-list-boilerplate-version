@@ -6,12 +6,10 @@ import bemculturalLocalidade from '/imports/modules/bemcultural/api/distritos.js
 
 import RadioButtonField from '/imports/ui/components/SimpleFormFields/RadioButtonField/RadioButtonField';
 import SimpleLabelView from '/imports/ui/components/SimpleLabelView/SimpleLabelView';
-import { createStyles, Theme, withStyles } from '@mui/styles';
 
 import { selectAutoCompleteStyle } from './SelectAutoCompleteFieldStyle';
 import { hasValue } from '/imports/libs/hasValue';
 import * as appStyle from '/imports/ui/materialui/styles';
-import InputBase from '@mui/material/InputBase';
 
 function downloadObjectAsJson(exportObj, exportName) {
 	const dataStr = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(exportObj))}`;
@@ -42,34 +40,6 @@ export const getLocalidade = () => {
 	});
 	downloadObjectAsJson(newLocalidade, 'localidades');
 };
-
-const BootstrapInput = withStyles((theme: Theme) =>
-	createStyles({
-		root: {
-			'label + &': {
-				marginTop: theme.spacing(3)
-			}
-		},
-		input: {
-			borderRadius: 4,
-			position: 'relative',
-			backgroundColor: '#cbcbcb',
-			border: '1px solid #80bdff',
-			fontSize: 16,
-			padding: '10px 26px 10px 12px',
-			transition: theme.transitions.create(['border-color', 'box-shadow']),
-			// Use the system font instead of the default Roboto font.
-			// fontFamily: [
-			//  //'PT',
-			// ].join(','),
-			'&:focus': {
-				borderRadius: 4,
-				borderColor: '#80bdff',
-				boxShadow: '0 0 0 0.2rem rgba(0,123,255,.25)'
-			}
-		}
-	})
-)(InputBase);
 
 interface IOtherProps {
 	options: {

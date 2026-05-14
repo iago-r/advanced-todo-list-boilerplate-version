@@ -2,42 +2,74 @@ import { Accounts } from 'meteor/accounts-base';
 import { Meteor } from 'meteor/meteor';
 import { userprofileServerApi } from '../modules/userprofile/api/userProfileServerApi';
 import { getHTMLEmailTemplate } from './email';
-import req from 'request';
-
-// @ts-ignore
-import settings from '/settings';
+import { serverSettings as settings } from '/imports/config/serverSettings';
 import { Mongo } from 'meteor/mongo';
 
-function getBase64FromURLImage(
-	urlImage: string,
-	callback = (e: any, r: any) => {
-		console.log(e, r);
-	}
-) {
-	const request = req.defaults({ encoding: null });
+const maxSocialImageBytes = Number(process.env.SOCIAL_IMAGE_MAX_BYTES || 2 * 1024 * 1024);
+const socialImageTimeoutMs = Number(process.env.SOCIAL_IMAGE_TIMEOUT_MS || 5000);
+const defaultAllowedSocialImageHosts = ['googleusercontent.com', 'graph.facebook.com', 'fbcdn.net'];
+const allowedSocialImageHosts = (process.env.SOCIAL_IMAGE_ALLOWED_HOSTS || defaultAllowedSocialImageHosts.join(','))
+	.split(',')
+	.map((host) => host.trim().toLowerCase())
+	.filter(Boolean);
 
-	request.get(urlImage, (error, response, body) => {
-		if (!error && response.statusCode === 200) {
-			const data = 'data:' + response.headers['content-type'] + ';base64,' + new Buffer(body).toString('base64');
-			callback(null, data);
-		} else {
-			callback(error, null);
-		}
-	});
+const escapeHtml = (value: unknown) =>
+	String(value ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+
+const isAllowedSocialImageUrl = (urlImage: string) => {
+	try {
+		const imageUrl = new URL(urlImage);
+		const hostname = imageUrl.hostname.toLowerCase();
+		return (
+			imageUrl.protocol === 'https:' &&
+			allowedSocialImageHosts.some((allowedHost) => hostname === allowedHost || hostname.endsWith(`.${allowedHost}`))
+		);
+	} catch (_error) {
+		return false;
+	}
+};
+
+async function getBase64FromURLImage(urlImage: string) {
+	if (!isAllowedSocialImageUrl(urlImage)) {
+		throw new Error('Social image URL is not allowed');
+	}
+
+	const abortController = new AbortController();
+	const timeout = setTimeout(() => abortController.abort(), socialImageTimeoutMs);
+
+	try {
+		const response = await fetch(urlImage, { signal: abortController.signal });
+		if (!response.ok) throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+
+		const contentType = response.headers.get('content-type') || 'application/octet-stream';
+		if (!contentType.toLowerCase().startsWith('image/')) throw new Error(`Invalid image content-type: ${contentType}`);
+
+		const contentLength = Number(response.headers.get('content-length') || 0);
+		if (contentLength > maxSocialImageBytes) throw new Error('Social image exceeds max allowed size');
+
+		const body = Buffer.from(await response.arrayBuffer());
+		if (body.length > maxSocialImageBytes) throw new Error('Social image exceeds max allowed size');
+
+		return `data:${contentType};base64,${body.toString('base64')}`;
+	} finally {
+		clearTimeout(timeout);
+	}
 }
 
-function updateUserProfileImageFromURL(userId: string | Mongo.ObjectID | Mongo.Selector<any>, urlImage: string) {
-	getBase64FromURLImage(
-		urlImage,
-		Meteor.bindEnvironment(async (err: any, res: any) => {
-			// Everything is good now
-			if (!err) {
-				await userprofileServerApi.getCollectionInstance().updateAsync(userId, {
-					$set: { photo: res, lastupdate: new Date() }
-				});
-			}
-		})
-	);
+async function updateUserProfileImageFromURL(userId: string | Mongo.ObjectID | Mongo.Selector<any>, urlImage: string) {
+	try {
+		const image = await getBase64FromURLImage(urlImage);
+		await userprofileServerApi.getCollectionInstance().updateAsync(userId, {
+			$set: { photo: image, lastupdate: new Date() }
+		});
+	} catch (error) {
+		console.warn('Não foi possível atualizar a imagem do perfil social:', error);
+	}
 }
 
 async function validateSocialLoginAndUpdateProfile(
@@ -63,7 +95,7 @@ async function validateSocialLoginAndUpdateProfile(
 		);
 
 		if (user.services && !!user.services.google && user.services.google.picture) {
-			updateUserProfileImageFromURL(userProfileID, user.services.google.picture);
+			await updateUserProfileImageFromURL(userProfileID, user.services.google.picture);
 		}
 	} else {
 		await Meteor.users.updateAsync(
@@ -84,7 +116,7 @@ async function validateSocialLoginAndUpdateProfile(
 
 		if (!userProfile.photo) {
 			if (user.services && !!user.services.google && user.services.google.picture) {
-				updateUserProfileImageFromURL(userProfile._id, user.services.google.picture);
+				await updateUserProfileImageFromURL(userProfile._id, user.services.google.picture);
 			}
 		}
 	}
@@ -126,15 +158,15 @@ Meteor.startup(() => {
 		return settings.name;
 	};
 	Accounts.emailTemplates.verifyEmail.html = (user, url) => {
-		const urlWithoutHash = url.replace('#/', '');
-		const userData = userprofileServerApi.findOne({ _id: user._id }) || {};
+		const urlWithoutHash = escapeHtml(url.replace('#/', ''));
+		const username = user.username || user.profile?.name || user.profile?.email || 'usuário';
 		const email =
 			`${
-				`<p>Olá ${userData.username || 'usuário'},</p>` +
+				`<p>Olá ${escapeHtml(username)},</p>` +
 				'<p>Seja bem vindo ao &nbsp;<strong>MeteorReactBase-MUI</strong>.</p>' +
 				'<p>Para confirmar seu cadastro clique no link abaixo:</p>' +
-				'<p><ins><a href='
-			}${urlWithoutHash}>${urlWithoutHash}</a></ins></p>` +
+				'<p><ins><a href="'
+			}${urlWithoutHash}">${urlWithoutHash}</a></ins></p>` +
 			'<p>Ficamos felizes com o seu cadastro.</p>' +
 			'<p><br/>Equipe <b>MeteorReactBase-MUI</b></p>';
 		const footer = `Essa mensagem foi gerada automaticamente!`;
@@ -146,16 +178,16 @@ Meteor.startup(() => {
 	};
 
 	Accounts.emailTemplates.enrollAccount.html = (user, url) => {
-		const urlWithoutHash = url.replace('#/', '');
-		const userData = userprofileServerApi.findOne({ _id: user._id }) || {};
+		const urlWithoutHash = escapeHtml(url.replace('#/', ''));
+		const username = user.username || user.profile?.name || user.profile?.email || 'usuário';
 
 		const email =
 			`${
-				`<p>Olá ${userData.username || 'usuário'},</p>` +
+				`<p>Olá ${escapeHtml(username)},</p>` +
 				'<p>Seja bem vindo ao &nbsp;<strong>MeteorReactBase-MUI</strong>.</p>' +
 				'<p>Para concluir seu cadastro clique no link abaixo e informe uma senha:</p>' +
-				'<p><ins><a href='
-			}${urlWithoutHash}>${urlWithoutHash}</a></ins></p>` +
+				'<p><ins><a href="'
+			}${urlWithoutHash}">${urlWithoutHash}</a></ins></p>` +
 			'<p>Ficamos felizes com o seu cadastro.</p>' +
 			'<p><br/>Equipe <b>MeteorReactBase-MUI</b></p>';
 		const footer = `Essa mensagem foi gerada automaticamente!`;
@@ -169,15 +201,15 @@ Meteor.startup(() => {
 		return settings.name;
 	};
 	Accounts.emailTemplates.resetPassword.html = (user, url) => {
-		const userData = userprofileServerApi.findOne({ _id: user._id }) || {};
-		const urlWithoutHash = url.replace('#/', '');
+		const urlWithoutHash = escapeHtml(url.replace('#/', ''));
+		const username = user.username || user.profile?.name || user.profile?.email || 'usuário';
 		const email =
 			`${
-				`<p>Olá ${userData.username || 'usuário'},</p>` +
+				`<p>Olá ${escapeHtml(username)},</p>` +
 				'<p>Sua senha de acesso ao <strong>MeteorReactBase-MUI</strong> será alterada.</p>' +
 				'<p>Clique no link abaixo e informe uma nova senha:</p>' +
-				'<p><ins><a href='
-			}${urlWithoutHash}>${urlWithoutHash}</a></ins></p>` +
+				'<p><ins><a href="'
+			}${urlWithoutHash}">${urlWithoutHash}</a></ins></p>` +
 			'<p></p>' +
 			'<p><br/>Equipe <b>MeteorReactBase-MUI</b></p>';
 		const footer = `Essa mensagem foi gerada automaticamente!`;
@@ -187,7 +219,7 @@ Meteor.startup(() => {
 	Accounts.onLogin(async (params: { user: Meteor.User; connection: { onClose: (arg0: () => void) => void } }) => {
 		//@ts-ignore
 		const userProfile = params.user
-			? userprofileServerApi.find({ email: params.user?.profile?.email }).fetch()[0]
+			? await userprofileServerApi.getCollectionInstance().findOneAsync({ email: params.user?.profile?.email })
 			: undefined;
 
 		if (userProfile)
@@ -200,7 +232,7 @@ Meteor.startup(() => {
 				if (userProfile)
 					userprofileServerApi
 						.getCollectionInstance()
-						.update({ _id: userProfile._id }, { $set: { lastacess: new Date(), connected: false } });
+						.updateAsync({ _id: userProfile._id }, { $set: { lastacess: new Date(), connected: false } });
 			})
 		);
 	});
@@ -208,7 +240,7 @@ Meteor.startup(() => {
 	Accounts.onLogout(async (params) => {
 		//@ts-ignore
 		const userProfile = params.user
-			? userprofileServerApi.find({ email: params.user?.profile?.email }).fetch()[0]
+			? await userprofileServerApi.getCollectionInstance().findOneAsync({ email: params.user?.profile?.email })
 			: undefined;
 		if (userProfile)
 			await userprofileServerApi
@@ -218,7 +250,7 @@ Meteor.startup(() => {
 
 	Accounts.config({
 		sendVerificationEmail: true,
-		forbidClientAccountCreation: false // impede que um usuário seja criado pelo cliente
+		forbidClientAccountCreation: process.env.ALLOW_CLIENT_ACCOUNT_CREATION !== 'true'
 	});
 
 	Accounts.validateLoginAttempt(({ user, allowed }: { user: Meteor.User; allowed: boolean }) => {

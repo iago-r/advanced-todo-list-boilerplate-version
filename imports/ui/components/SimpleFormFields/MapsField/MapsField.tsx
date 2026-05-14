@@ -1,24 +1,9 @@
 import React from 'react';
-import withStyles from '@mui/styles/withStyles';
 import { GoogleApiWrapper, Map, Marker } from 'google-maps-react';
 import FormGroup from '@mui/material/FormGroup';
-import settings from '/settings.json';
+import { publicSettings } from '/imports/config/publicSettings';
 import SimpleLabelView from '/imports/ui/components/SimpleLabelView/SimpleLabelView';
 import { mapsFieldStyles } from './MapsFieldStyles';
-
-const stylesWrap = (theme: any) => ({
-	root: {
-		display: 'flex',
-		flexWrap: 'wrap'
-	},
-	chips: {
-		display: 'flex',
-		flexWrap: 'wrap'
-	},
-	chip: {
-		margin: theme.spacing(1) / 4
-	}
-});
 
 class LocationComponent extends React.Component<IBaseSimpleFormComponent> {
 	handleMapClick = (mapProps, map, clickEvent) => {
@@ -75,6 +60,6 @@ class LocationComponent extends React.Component<IBaseSimpleFormComponent> {
 }
 
 export default GoogleApiWrapper({
-	apiKey: settings && settings.maps ? settings.maps.api : '',
+	apiKey: publicSettings.maps.api,
 	libraries: ['visualization']
-})(withStyles(stylesWrap)(LocationComponent));
+})(LocationComponent);

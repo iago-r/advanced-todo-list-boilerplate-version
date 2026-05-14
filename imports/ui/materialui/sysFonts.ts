@@ -1,4 +1,4 @@
-import { TypographyOptions } from '@mui/material/styles/createTypography';
+import { TypographyVariantsOptions } from '@mui/material/styles';
 
 class SysFonts {
 	public static readonly fontFamily = 'Poppins, sans-serif';
@@ -116,7 +116,7 @@ class SysFonts {
 		lineHeight: 'normal'
 	});
 
-	public static readonly getTypography = (_fontScale: number = 1): TypographyOptions => ({
+	public static readonly getTypography = (_fontScale: number = 1): TypographyVariantsOptions => ({
 		fontFamily: SysFonts.fontFamily,
 		h1: SysFonts.h1(_fontScale),
 		h2: SysFonts.h2(_fontScale),

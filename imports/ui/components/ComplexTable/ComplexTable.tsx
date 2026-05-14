@@ -10,11 +10,12 @@ import {
 	GridRowId,
 	GridRowIdGetter,
 	GridRowParams,
+	GridRowSelectionModel,
 	MuiEvent
 } from '@mui/x-data-grid';
 import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
-import { Variant } from '@mui/material/styles/createTypography';
+import { TypographyVariant } from '@mui/material/styles';
 import { ComplexTableContainer, ComplexTableRenderImg, ComplexTableRowText } from './ComplexTableStyle';
 import { Toolbar } from './Toolbar';
 import { GridColumnGroupingModel } from '@mui/x-data-grid/models/gridColumnGrouping';
@@ -77,11 +78,11 @@ interface IComplexTableProps {
 	/**
 	 * Variante do texto da header de cada coluna.
 	 */
-	headerVariant?: Variant;
+	headerVariant?: TypographyVariant;
 	/**
 	 * Variante do texto das linhas.
 	 */
-	rowVariant?: Variant;
+	rowVariant?: TypographyVariant;
 	/**
 	 * Placeholder do campo de pesquisa na tabela, caso exista.
 	 */
@@ -406,6 +407,13 @@ export const ComplexTable = (props: IComplexTableProps) => {
 	}
 
 	const [selection, setSelection] = React.useState<GridRowId[]>([]);
+	const rowSelectionModel = React.useMemo<GridRowSelectionModel>(
+		() => ({
+			type: 'include',
+			ids: new Set(selection)
+		}),
+		[selection]
+	);
 
 	React.useEffect(() => {
 		if (setSelectionModel !== undefined && selectionModel !== undefined) setSelectionModel(selection);
@@ -425,8 +433,10 @@ export const ComplexTable = (props: IComplexTableProps) => {
 				autoHeight={autoHeight ?? true}
 				localeText={locale}
 				getRowId={!!getId ? getId : (row) => row._id}
-				onRowSelectionModelChange={(newSelection) => setSelection(newSelection)}
-				rowSelectionModel={selection}
+				onRowSelectionModelChange={(newSelection) =>
+					setSelection(newSelection?.ids ? Array.from(newSelection.ids) : [])
+				}
+				rowSelectionModel={rowSelectionModel}
 				onRowClick={
 					!!onRowClick
 						? (params: GridRowParams, event: MuiEvent<React.MouseEvent>) => {

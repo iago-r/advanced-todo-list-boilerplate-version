@@ -79,8 +79,7 @@ const SysFormTestsPage: React.FC = () => {
 				<Typography variant="h3">Testes do componente de SysForm</Typography>
 				<Typography variant="body1" textAlign={'justify'}>
 					Essa página é dedicada aos testes e exibições de componentes e funcionalidades do nosso sistema. Esperamos que
-					você aproveite e aprenda bastante com ela. Para mais dúvidas consulte nossa documentação oficial pelo
-					storybook.
+					você aproveite e aprenda bastante com ela. Para mais dúvidas consulte a documentação do projeto.
 				</Typography>
 			</SysFormTestsStyles.header>
 			<Typography variant="h5">Schema e docValues</Typography>

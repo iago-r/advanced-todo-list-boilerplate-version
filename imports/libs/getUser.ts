@@ -3,11 +3,11 @@ import { Meteor } from 'meteor/meteor';
 import { get, set, Store } from 'idb-keyval';
 import { parse, stringify } from 'zipson';
 import { EnumUserRoles } from '../modules/userprofile/api/enumUser';
-import settings from '../../settings.json';
+import { publicSettings } from '/imports/config/publicSettings';
 import { IUserProfile } from '../modules/userprofile/api/userProfileSch';
 
 class LoggedUserStore {
-	userStore = new Store(`${settings.name}_` + 'loggedUser', 'LoggedUser-store');
+	userStore = new Store(`${publicSettings.name}_` + 'loggedUser', 'LoggedUser-store');
 	updateDateOnJson = (object) => {
 		function reviver(key, value) {
 			if (`${value}`.length === 24 && !!Date.parse(value)) {

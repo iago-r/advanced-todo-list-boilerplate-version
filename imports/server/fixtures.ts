@@ -4,15 +4,23 @@ import { userprofileServerApi } from '../modules/userprofile/api/userProfileServ
 
 async function createDefautUser() {
 	// if (Meteor.isDevelopment && Meteor.users.find().count() === 0) {
-	const count = await Meteor.users.find({}).countAsync();
 	if ((await Meteor.users.find({}).countAsync()) === 0) {
+		const defaultAdminUsername = process.env.DEFAULT_ADMIN_USERNAME || 'Administrador';
+		const defaultAdminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@mrb.com';
+		const defaultAdminPassword = process.env.DEFAULT_ADMIN_PASSWORD || 'admin@mrb.com';
+
+		if (!process.env.DEFAULT_ADMIN_PASSWORD) {
+			console.warn(
+				'DEFAULT_ADMIN_PASSWORD não foi definida. Usando a senha fallback do boilerplate para o usuário administrador.'
+			);
+		}
+
 		let createdUserId = '';
 		createdUserId = await Accounts.createUserAsync({
-			username: 'Administrador',
-			email: 'admin@mrb.com',
-			password: 'admin@mrb.com'
+			username: defaultAdminUsername,
+			email: defaultAdminEmail,
+			password: defaultAdminPassword
 		});
-
 
 		await Meteor.users.upsertAsync(
 			{ _id: createdUserId },
@@ -20,8 +28,8 @@ async function createDefautUser() {
 				$set: {
 					'emails.0.verified': true,
 					profile: {
-						name: 'Admin',
-						email: 'admin@mrb.com'
+						name: defaultAdminUsername,
+						email: defaultAdminEmail
 					}
 				}
 			}
@@ -29,8 +37,8 @@ async function createDefautUser() {
 
 		await userprofileServerApi.getCollectionInstance().insertAsync({
 			_id: createdUserId,
-			username: 'Administrador',
-			email: 'admin@mrb.com',
+			username: defaultAdminUsername,
+			email: defaultAdminEmail,
 			roles: ['Administrador']
 		});
 	}

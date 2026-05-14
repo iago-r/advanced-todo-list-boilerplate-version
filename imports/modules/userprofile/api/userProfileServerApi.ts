@@ -3,7 +3,7 @@ import { Meteor } from 'meteor/meteor';
 import { Accounts } from 'meteor/accounts-base';
 import { IMeteorUser, IUserProfile, userProfileSch } from './userProfileSch';
 import { userprofileData } from '../../../libs/getUser';
-import settings from '../../../../settings.json';
+import { serverSettings as settings } from '/imports/config/serverSettings';
 import { check } from 'meteor/check';
 import { IContext } from '../../../typings/IContext';
 import { IDoc } from '../../../typings/IDoc';
@@ -11,6 +11,28 @@ import { ProductServerBase } from '../../../api/productServerBase';
 import { EnumUserRoles } from './enumUser';
 import { nanoid } from 'nanoid';
 import User = Meteor.User;
+
+const emailMethodRateLimitWindowMs = Number(process.env.EMAIL_METHOD_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const emailMethodRateLimitMax = Number(process.env.EMAIL_METHOD_RATE_LIMIT_MAX || 5);
+const emailMethodAttempts = new Map<string, { count: number; resetAt: number }>();
+
+const isAdminUser = (user?: IUserProfile | null) => user?.roles?.includes(EnumUserRoles.ADMINISTRADOR) || false;
+
+const assertRateLimit = (key: string) => {
+	const now = Date.now();
+	const current = emailMethodAttempts.get(key);
+
+	if (!current || current.resetAt <= now) {
+		emailMethodAttempts.set(key, { count: 1, resetAt: now + emailMethodRateLimitWindowMs });
+		return;
+	}
+
+	if (current.count >= emailMethodRateLimitMax) {
+		throw new Meteor.Error('rate-limit-exceeded', 'Muitas tentativas. Tente novamente mais tarde.');
+	}
+
+	current.count++;
+};
 
 interface IUserProfileEstendido extends IUserProfile {
 	password?: string;
@@ -22,6 +44,18 @@ interface IUserProfileEstendido extends IUserProfile {
  */
 export const getUserServer = async (connection?: { id: string } | null): IUserProfile => {
 	const user: (User & IMeteorUser) | null = await Meteor.userAsync();
+	const d = new Date();
+	const simpleDate = `${d.getFullYear()}${d.getMonth() + 1}${d.getDay()}`;
+	const id = connection && connection.id ? simpleDate + connection.id : nanoid();
+
+	if (!user?.profile?.email) {
+		return {
+			email: '',
+			username: '',
+			_id: id,
+			roles: [EnumUserRoles.PUBLICO]
+		};
+	}
 
 	try {
 		const userProfile = await userprofileServerApi.getCollectionInstance().findOneAsync({
@@ -31,10 +65,6 @@ export const getUserServer = async (connection?: { id: string } | null): IUserPr
 		if (userProfile) {
 			return userProfile;
 		}
-		const d = new Date();
-		const simpleDate = `${d.getFullYear()}${d.getMonth() + 1}${d.getDay()}`;
-		const id = connection && connection.id ? simpleDate + connection.id : nanoid();
-
 		return {
 			email: '',
 			username: '',
@@ -42,9 +72,6 @@ export const getUserServer = async (connection?: { id: string } | null): IUserPr
 			roles: [EnumUserRoles.PUBLICO]
 		};
 	} catch (e) {
-		const d = new Date();
-		const simpleDate = `${d.getFullYear()}${d.getMonth() + 1}${d.getDay()}`;
-		const id = connection && connection.id ? simpleDate + connection.id : nanoid();
 		return {
 			id,
 			_id: id,
@@ -70,34 +97,45 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 
 		this.afterInsert = this.afterInsert.bind(this);
 
-		this.registerMethod('sendVerificationEmail', async (userData: IUserProfile) => {
+		this.registerMethod('sendVerificationEmail', async (userData: IUserProfile, context: IContext) => {
 			check(userData, Object);
+			assertRateLimit(
+				`verify:${context.connection?.id || context.user?._id || 'anonymous'}:${userData.email || userData._id}`
+			);
 			if (Meteor.isServer && userData) {
-				if (userData._id) {
-					Accounts.sendVerificationEmail(userData._id);
-				} else if (userData.email) {
-					const user = await Meteor.users.findOneAsync({
-						'emails.address': userData.email
-					});
-					Accounts.sendVerificationEmail(user?._id ?? '');
+				const user = userData._id
+					? await Meteor.users.findOneAsync({ _id: userData._id })
+					: userData.email
+						? await Meteor.users.findOneAsync({ 'emails.address': userData.email })
+						: null;
+
+				if (!user) {
+					return true;
 				}
+
+				if (!isAdminUser(context.user) && user._id !== context.user?._id) {
+					throw new Meteor.Error('Acesso negado', 'Você não tem permissão para reenviar este email.');
+				}
+
+				Accounts.sendVerificationEmail(user._id);
 			}
+			return true;
 		});
 
-		this.registerMethod('sendResetPasswordEmail', async (userData: IUserProfile) => {
+		this.registerMethod('sendResetPasswordEmail', async (userData: IUserProfile, context: IContext) => {
 			check(userData, Object);
+			assertRateLimit(
+				`reset:${context.connection?.id || context.user?._id || 'anonymous'}:${userData.email || userData._id}`
+			);
 			if (Meteor.isServer && userData) {
-				if (userData._id) {
-					Accounts.sendResetPasswordEmail(userData._id);
-				} else if (userData.email) {
-					const user = await Meteor.users.findOneAsync({
-						'emails.address': userData.email
-					});
-					if (user) {
-						Accounts.sendResetPasswordEmail(user._id);
-					} else {
-						return false;
-					}
+				const user = userData._id
+					? await Meteor.users.findOneAsync({ _id: userData._id })
+					: userData.email
+						? await Meteor.users.findOneAsync({ 'emails.address': userData.email })
+						: null;
+
+				if (user) {
+					Accounts.sendResetPasswordEmail(user._id);
 				}
 			}
 			return true;
@@ -155,7 +193,11 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 		}
 	};
 
-	changeUserStatus = async (userId: string) => {
+	changeUserStatus = async (userId: string, context: IContext) => {
+		if (!isAdminUser(context.user)) {
+			throw new Meteor.Error('Acesso negado', `Vocẽ não tem permissão para alterar esses dados`);
+		}
+
 		const user = await this.collectionInstance.findOneAsync({ _id: userId });
 		let newStatus = '';
 		try {
@@ -190,7 +232,7 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 				dataObj = Object.assign({}, dataObj, { password });
 			}
 
-			this._includeAuditData(dataObj, 'insert');
+			await this._includeAuditData(dataObj, 'insert');
 			if (await this.beforeInsert(dataObj, context)) {
 				await this.registrarUserProfileNoMeteor(dataObj);
 				delete dataObj.password;
@@ -255,7 +297,7 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 
 				dataObj.password = password;
 
-				this.afterInsert(dataObj, context);
+				await this.afterInsert(dataObj, context);
 				if (context.rest) {
 					context.rest.response.statusCode = 201;
 				}
@@ -287,11 +329,11 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 
 	addPublicationMeteorUsers = () => {
 		if (Meteor.isServer) {
-			Meteor.publish('statusCadastroUserProfile', async (userId) => {
+			Meteor.publish('statusCadastroUserProfile', async function (userId) {
 				check(userId, String);
 				const user = await getUserServer();
 
-				if (user && user.roles && user.roles.indexOf('Administrador') !== -1) {
+				if (isAdminUser(user)) {
 					return Meteor.users.find(
 						{},
 						{
@@ -306,7 +348,20 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 						}
 					);
 				}
-				return Meteor.users.find({ _id: userId });
+				if (!this.userId || userId !== this.userId) {
+					return this.ready();
+				}
+				return Meteor.users.find(
+					{ _id: this.userId },
+					{
+						fields: {
+							_id: 1,
+							username: 1,
+							'emails.verified': 1,
+							'emails.address': 1
+						}
+					}
+				);
 			});
 			Meteor.publish('user', function () {
 				if (this.userId) {
@@ -346,6 +401,9 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 	};
 
 	async beforeInsert(docObj: IUserProfile, context: IContext) {
+		if (!isAdminUser(context.user)) {
+			docObj.roles = [EnumUserRoles.USUARIO];
+		}
 		return super.beforeInsert(docObj, context);
 	}
 
@@ -377,8 +435,11 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 	}
 
 	async beforeRemove(docObj: IUserProfile, context: IContext) {
-		super.beforeRemove(docObj, context);
-		Meteor.users.remove({ _id: docObj._id });
+		if (!isAdminUser(context.user)) {
+			throw new Meteor.Error('Acesso negado', `Vocẽ não tem permissão para alterar esses dados`);
+		}
+		await super.beforeRemove(docObj, context);
+		await Meteor.users.removeAsync({ _id: docObj._id });
 		return true;
 	}
 }

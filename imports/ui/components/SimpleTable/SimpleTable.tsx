@@ -15,6 +15,7 @@ import { simpleTableStyle } from './SimpleTableStyle';
 import './simpletableCSS.css';
 import { useTheme } from '@mui/material/styles';
 import SysIcon from '../sysIcon/sysIcon';
+import { sanitizeHtml } from '/imports/libs/sanitizeHtml';
 
 interface ISimpleTable {
 	schema: ISchema;
@@ -300,9 +301,9 @@ export const SimpleTable = React.memo((props: ISimpleTable) => {
 			);
 		else if (type === 'html') {
 			return Array.isArray(data) ? (
-				data.map((d, idx) => <div key={'dgrs' + idx} dangerouslySetInnerHTML={{ __html: d }} />)
+				data.map((d, idx) => <div key={'dgrs' + idx} dangerouslySetInnerHTML={{ __html: sanitizeHtml(d) }} />)
 			) : (
-				<div key={'dgrs'} dangerouslySetInnerHTML={{ __html: data }} />
+				<div key={'dgrs'} dangerouslySetInnerHTML={{ __html: sanitizeHtml(data) }} />
 			);
 		} else if (type === 'status') {
 			return (

@@ -5,10 +5,6 @@ import omit from 'lodash/omit';
 import InputBase from '@mui/material/InputBase';
 import TextField, { TextFieldProps } from '@mui/material/TextField';
 
-import makeStyles from '@mui/styles/makeStyles';
-
-import { createStyles, Theme } from '@mui/material/styles';
-
 import SimpleLabelView from '/imports/ui/components/SimpleLabelView/SimpleLabelView';
 
 import * as appStyle from '/imports/ui/materialui/styles';
@@ -27,14 +23,6 @@ export default ({
 	onChange,
 	...otherProps
 }: IBaseSimpleFormComponent & TextFieldProps) => {
-	const useStyles = makeStyles((theme: Theme) =>
-		createStyles({
-			root: { height: 50 }
-		})
-	);
-
-	const classes = useStyles();
-
 	const fieldValue =
 		value === '-'
 			? '-'
@@ -147,7 +135,7 @@ export default ({
 				) : null}
 				<TextField
 					key={name}
-					InputProps={otherProps.rounded ? { classes: classes } : undefined}
+					InputProps={otherProps.rounded ? { sx: { height: 50 } } : undefined}
 					{...omit(otherProps, ['placeholder'])}
 					onChange={onFieldChange}
 					value={fieldValue}

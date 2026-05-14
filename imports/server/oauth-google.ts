@@ -2,11 +2,12 @@
 
 import { ServiceConfiguration } from 'meteor/service-configuration';
 import { Meteor } from 'meteor/meteor';
+import { Accounts } from 'meteor/accounts-base';
 import { OAuth } from 'meteor/oauth';
 import { HTTP } from 'meteor/http';
 import _ from 'lodash';
 import { userprofileServerApi } from '../modules/userprofile/api/userProfileServerApi';
-import settings from '../../settings.json';
+import { serverSettings as settings } from '/imports/config/serverSettings';
 
 const whitelistedFields = [
 	'id',
@@ -52,7 +53,7 @@ const getIdentity = (accessToken) => {
 			params: { access_token: accessToken }
 		}).data;
 	} catch (err) {
-		throw _.extend(new Error(`Failed to fetch identity from Google. ${err.message}`), {
+		throw Object.assign(new Error(`Failed to fetch identity from Google. ${err.message}`), {
 			response: err.response
 		});
 	}
@@ -64,7 +65,7 @@ const getScopes = (accessToken) => {
 			params: { access_token: accessToken }
 		}).data.scope.split(' ');
 	} catch (err) {
-		throw _.extend(new Error(`Failed to fetch tokeninfo from Google. ${err.message}`), {
+		throw Object.assign(new Error(`Failed to fetch tokeninfo from Google. ${err.message}`), {
 			response: err.response
 		});
 	}
@@ -100,7 +101,7 @@ const handleAuthFromAccessToken = (accessToken, expiresAt) => {
 	};
 
 	const fields = _.pick(identity, whitelistedFields);
-	_.extend(serviceData, fields);
+	Object.assign(serviceData, fields);
 
 	return {
 		serviceData,
@@ -116,7 +117,7 @@ const registerGoogleMobileLoginHandler = async () => {
 			return undefined;
 		}
 
-		const serviceConfig = ServiceConfiguration.configurations.findOne({
+		const serviceConfig = await ServiceConfiguration.configurations.findOneAsync({
 			service: 'google'
 		});
 		if (!serviceConfig) {
@@ -156,7 +157,7 @@ const registerGoogleMobileLoginHandler = async () => {
 		console.log('@@@@@@@ >>>NEW serviceData 1:', serviceData);
 
 		const fields = _.pick(identity, whitelistedFields);
-		_.extend(serviceData, fields);
+		Object.assign(serviceData, fields);
 
 		if (loginRequest.serverAuthCode) {
 			const authCodes = exchangeAuthCode(loginRequest.serverAuthCode, serviceConfig);
