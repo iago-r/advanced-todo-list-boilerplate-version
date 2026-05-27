@@ -4,8 +4,9 @@ import { Meteor } from 'meteor/meteor';
 let uploadPaths = null;
 if (Meteor.isServer) {
 	const fs = require('fs');
+	const defaultUploadPath = `${Meteor.absolutePath.split('/').slice(0, -1).join('/')}/uploads/meteorUploads`;
 
-	uploadPaths = `${Meteor.absolutePath.split('/').slice(0, -1).join('/')}/uploads/meteorUploads`;
+	uploadPaths = process.env.UPLOADS_DIR || defaultUploadPath;
 
 	if (!fs.existsSync(uploadPaths)) {
 		fs.mkdirSync(uploadPaths, { recursive: true });

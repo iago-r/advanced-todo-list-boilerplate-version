@@ -33,6 +33,8 @@ Entre os principais benefícios de utilizar o **MeteorReactBaseMUI**, destacam-s
 - [Visão Geral da Arquitetura](#visao-geral-da-arquitetura)
 - [Estrutura de Pastas](#estrutura-de-pastas)
 - [Primeiros Passos](#primeiros-passos)
+- [Rodando com Docker](#rodando-com-docker)
+- [Publicando em VPS, Droplet ou VM na nuvem](#publicando-em-vps-droplet-ou-vm-na-nuvem)
 - [Trabalhando com módulos](#trabalhando-com-modulos)
 - [Suporte Offline](#suporte-offline)
 - [Testes](#testes)
@@ -40,10 +42,10 @@ Entre os principais benefícios de utilizar o **MeteorReactBaseMUI**, destacam-s
 
 ## Requisitos
 
-- Node.js 16 ou superior
-- Meteor 3.2.2 (veja `.meteor/release`)
+- Node.js 22 para rodar fora do Docker
+- Meteor 3.4.1 (veja `.meteor/release`)
 - Um gerenciador de pacotes npm compatível (instalado junto ao Node)
-
+- Docker e Docker Compose Plugin para rodar via containers
 
 ## Visão Geral da Arquitetura
 
@@ -136,6 +138,371 @@ Para iniciar o desenvolvimento com o **MeteorReactBaseMUI**, siga os passos abai
    ```
 
    > **Nota**: Os dados do usuário `admin` foram inseridos no banco de dados pelo arquivo [`/imports/server/fixtures.ts`](https://github.com/synergia-labs/MeteorReactBaseMUI/blob/master/imports/server/fixtures.ts)
+
+## Rodando com Docker
+
+O projeto possui duas configurações Docker:
+
+- `docker-compose.dev.yml`: ambiente de desenvolvimento com hot reload, código montado por volume e MongoDB separado.
+- `docker-compose.yml`: ambiente de produção, com build otimizado do Meteor e MongoDB persistente.
+
+As duas versões usam MongoDB com replica set `rs0` e `MONGO_OPLOG_URL`, que melhora o funcionamento reativo do Meteor em cima do Mongo. Os uploads feitos pela aplicação também são persistidos em volume Docker.
+
+### Desenvolvimento com hot reload
+
+Suba o ambiente de desenvolvimento:
+
+```bash
+npm run docker:dev
+```
+
+Ou em segundo plano:
+
+```bash
+npm run docker:dev:detached
+```
+
+A aplicação fica disponível em:
+
+```text
+http://localhost:3000
+```
+
+No ambiente de desenvolvimento:
+
+- o código local é montado dentro do container em `/app`;
+- `node_modules`, `.meteor/local`, uploads e banco ficam em volumes Docker separados;
+- alterações em arquivos do projeto disparam rebuild/hot reload do Meteor;
+- o MongoDB fica acessível no host em `localhost:27018`, útil para ferramentas como MongoDB Compass.
+
+Para acompanhar os logs:
+
+```bash
+npm run docker:logs:dev
+```
+
+Para parar os containers sem apagar dados:
+
+```bash
+npm run docker:down
+```
+
+Para parar e apagar volumes, incluindo banco e uploads:
+
+```bash
+npm run docker:down:volumes
+```
+
+Use `docker:down:volumes` com cuidado, pois ele remove os dados persistidos do MongoDB e dos arquivos enviados.
+
+### Produção local
+
+Suba a versão de produção:
+
+```bash
+npm run docker:prod
+```
+
+Ou em segundo plano:
+
+```bash
+npm run docker:prod:detached
+```
+
+A aplicação fica disponível em:
+
+```text
+http://localhost:3000
+```
+
+No Compose de produção:
+
+- o container `app` executa o bundle gerado por `meteor build`;
+- o MongoDB não é exposto para fora da rede interna do Docker;
+- os dados do banco ficam nos volumes `mongo_data` e `mongo_config`;
+- os uploads ficam no volume `app_uploads`;
+- `ROOT_URL`, `APP_PORT` e outras variáveis podem ser ajustadas por arquivo `.env` ou pelo shell.
+
+Exemplo de `.env` para produção:
+
+```dotenv
+ROOT_URL=https://app.seudominio.com
+APP_PORT=127.0.0.1:3000
+```
+
+Com `APP_PORT=127.0.0.1:3000`, a aplicação só escuta localmente na máquina. Essa é a configuração recomendada quando existe NGINX na frente.
+
+### Variáveis úteis
+
+Algumas variáveis importantes para operação:
+
+```dotenv
+ROOT_URL=https://app.seudominio.com
+APP_PORT=127.0.0.1:3000
+DEFAULT_ADMIN_USERNAME=Administrador
+DEFAULT_ADMIN_EMAIL=admin@seudominio.com
+DEFAULT_ADMIN_PASSWORD=troque-esta-senha
+MAIL_URL_SMTP=smtp://usuario:senha@smtp.exemplo.com:587
+MAIL_NO_REPLY=no-reply@seudominio.com
+MAIL_SYSTEM=contato@seudominio.com
+CORS_ORIGINS=https://app.seudominio.com
+```
+
+Não versionar arquivos com senhas, tokens ou credenciais reais. Em produção, prefira configurar segredos no ambiente da máquina, no painel do provedor ou em um gerenciador de secrets.
+
+### Comandos disponíveis
+
+```bash
+npm run docker:dev
+npm run docker:dev:detached
+npm run docker:prod
+npm run docker:prod:detached
+npm run docker:logs:dev
+npm run docker:logs:prod
+npm run docker:down
+npm run docker:down:volumes
+```
+
+## Publicando em VPS, Droplet ou VM na nuvem
+
+Este roteiro considera uma VM Linux, como Ubuntu Server LTS, com um domínio apontando para o IP público da máquina.
+
+### 1. Preparar DNS
+
+Crie um registro `A` no DNS apontando para o IP da VM:
+
+```text
+app.seudominio.com -> IP_DA_VM
+```
+
+Aguarde a propagação e valide:
+
+```bash
+dig app.seudominio.com
+```
+
+### 2. Preparar a máquina
+
+Atualize o sistema e instale os pacotes básicos:
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y git nginx ufw dnsutils snapd
+```
+
+Instale Docker Engine e Docker Compose Plugin conforme a documentação oficial do Docker. Em seguida, habilite o serviço:
+
+```bash
+sudo systemctl enable --now docker
+```
+
+Opcionalmente, adicione seu usuário ao grupo `docker` para executar comandos sem `sudo`:
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+Depois disso, saia da sessão SSH e entre novamente.
+
+### 3. Baixar e configurar a aplicação
+
+Clone o projeto em uma pasta de deploy:
+
+```bash
+sudo mkdir -p /opt/apps
+sudo chown -R $USER:$USER /opt/apps
+cd /opt/apps
+git clone URL_DO_REPOSITORIO meteor-react-base
+cd meteor-react-base
+```
+
+Crie um arquivo `.env` para o Compose:
+
+```dotenv
+ROOT_URL=https://app.seudominio.com
+APP_PORT=127.0.0.1:3000
+```
+
+Revise o `settings.json` e configure integrações reais de e-mail, Google, Facebook e mapas quando forem usadas. Em uma instalação nova, troque a senha do administrador padrão imediatamente após o primeiro login ou configure `DEFAULT_ADMIN_PASSWORD` antes da primeira inicialização.
+
+Suba a aplicação:
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+Verifique:
+
+```bash
+docker compose -f docker-compose.yml ps
+docker compose -f docker-compose.yml logs -f app
+```
+
+### 4. Configurar NGINX como proxy reverso
+
+Crie o arquivo:
+
+```bash
+sudo nano /etc/nginx/sites-available/meteor-react-base
+```
+
+Conteúdo sugerido:
+
+```nginx
+map $http_upgrade $connection_upgrade {
+	default upgrade;
+	'' close;
+}
+
+server {
+	listen 80;
+	server_name app.seudominio.com;
+
+	client_max_body_size 20m;
+
+	location / {
+		proxy_pass http://127.0.0.1:3000;
+		proxy_http_version 1.1;
+
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection $connection_upgrade;
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+
+		proxy_read_timeout 120s;
+		proxy_send_timeout 120s;
+	}
+}
+```
+
+Habilite o site:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/meteor-react-base /etc/nginx/sites-enabled/meteor-react-base
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Esses cabeçalhos são importantes para preservar `Host`, IP real, protocolo original e WebSocket/DDP do Meteor.
+
+### 5. Habilitar HTTPS com Let's Encrypt
+
+Instale o Certbot com suporte ao NGINX usando o método recomendado para sua distribuição. Em Ubuntu, o fluxo comum via Snap é:
+
+```bash
+sudo snap install core
+sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -sf /snap/bin/certbot /usr/bin/certbot
+```
+
+Emita o certificado:
+
+```bash
+sudo certbot --nginx -d app.seudominio.com
+```
+
+Teste a renovação automática:
+
+```bash
+sudo certbot renew --dry-run
+```
+
+Após o certificado ser emitido, confirme que o `.env` usa HTTPS:
+
+```dotenv
+ROOT_URL=https://app.seudominio.com
+APP_PORT=127.0.0.1:3000
+```
+
+Recrie a aplicação se alterar o `.env`:
+
+```bash
+docker compose -f docker-compose.yml up -d --build
+```
+
+### 6. Firewall e segurança básica
+
+Ative um firewall permitindo apenas SSH, HTTP e HTTPS:
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+sudo ufw status
+```
+
+Boas práticas recomendadas:
+
+- usar login SSH por chave, não por senha;
+- desabilitar login direto do usuário `root`;
+- manter sistema, Docker, NGINX e imagens atualizados;
+- não expor MongoDB publicamente;
+- não publicar porta `3000` para a internet quando NGINX estiver na frente;
+- usar senhas fortes e únicas para o administrador inicial;
+- guardar `.env`, `settings.json` real e backups fora do Git;
+- limitar origens em `CORS_ORIGINS` quando APIs externas forem usadas;
+- revisar logs periodicamente com `docker compose logs` e `journalctl -u nginx`;
+- configurar monitoramento de disco, CPU, memória e disponibilidade.
+
+Antes de desabilitar senha SSH ou login root, abra uma segunda sessão SSH e confirme que consegue entrar por chave. Isso evita ficar bloqueado fora da VM.
+
+### 7. Atualização de versão
+
+Para publicar uma nova versão:
+
+```bash
+cd /opt/apps/meteor-react-base
+git pull
+docker compose -f docker-compose.yml up -d --build
+docker image prune -f
+```
+
+### 8. Backup e restauração
+
+Crie uma pasta de backups:
+
+```bash
+mkdir -p backups
+```
+
+Backup do MongoDB:
+
+```bash
+docker compose -f docker-compose.yml exec mongo mongodump --archive=/tmp/meteor-react-base.archive.gz --gzip --db meteor-react-base
+docker compose -f docker-compose.yml cp mongo:/tmp/meteor-react-base.archive.gz ./backups/meteor-react-base.archive.gz
+```
+
+Backup dos uploads:
+
+```bash
+docker run --rm -v meteor-react-base-prod_app_uploads:/data -v "$PWD/backups:/backup" busybox tar czf /backup/uploads.tar.gz -C /data .
+```
+
+Restauração do MongoDB:
+
+```bash
+docker compose -f docker-compose.yml exec -T mongo mongorestore --gzip --archive --drop < ./backups/meteor-react-base.archive.gz
+```
+
+Restauração dos uploads:
+
+```bash
+docker run --rm -v meteor-react-base-prod_app_uploads:/data -v "$PWD/backups:/backup" busybox sh -c "cd /data && tar xzf /backup/uploads.tar.gz"
+```
+
+Valide periodicamente se os backups restauram corretamente em uma máquina de homologação. Backup sem teste de restauração é apenas uma hipótese otimista.
+
+### Referências oficiais úteis
+
+- Docker Compose em produção: https://docs.docker.com/compose/how-tos/production/
+- Variáveis de ambiente no Docker Compose: https://docs.docker.com/compose/environment-variables/
+- NGINX como proxy reverso: https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/
+- Certbot para NGINX: https://certbot.eff.org/instructions
+- OpenSSH no Ubuntu Server: https://ubuntu.com/server/docs/how-to/security/openssh-server/
 
 ## Trabalhando com módulos
 

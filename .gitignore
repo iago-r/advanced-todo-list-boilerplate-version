@@ -3,4 +3,7 @@
 .meteor/local
 node_modules
 .vscode
-*.cypress/cucumber-json  
+*.cypress/cucumber-json
+.env
+.env.*
+!.env.example
