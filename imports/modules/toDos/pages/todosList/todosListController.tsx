@@ -3,61 +3,45 @@ import TodosListView from './todosListView';
 import { nanoid } from 'nanoid';
 import { useNavigate } from 'react-router-dom';
 import { useTracker } from 'meteor/react-meteor-data';
-import { ISchema } from '../../../../typings/ISchema';
 import { ITodos } from '../../api/todosSch';
 import { todosApi } from '../../api/todosApi';
 
 interface IInitialConfig {
-	sortProperties: { field: string; sortAscending: boolean };
-	filter: Object;
-	searchBy: string | null;
-	viewComplexTable: boolean;
+  sortProperties: { field: string; sortAscending: boolean };
+  filter: Object;
 }
 
-interface ITodosListContollerContext {
+interface ITodosListControllerContext {
 	onAddButtonClick: () => void;
-	onDeleteButtonClick: (row: any) => void;
-	todoList: ITodos[];
-	schema: ISchema<any>;
-	loading: boolean;
+	onDeleteButtonClick: (todo: ITodos) => void;
+	onToggleComplete: (todo: ITodos) => void;
 	onChangeTextField: (event: React.ChangeEvent<HTMLInputElement>) => void;
-	onChangeCategory: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onToggleComplete: (todo: ITodos) => void;
+	todoList: ITodos[];
+	loading: boolean;
 }
 
-export const TodosListControllerContext = React.createContext<ITodosListContollerContext>(
-	{} as ITodosListContollerContext
+export const TodosListControllerContext = React.createContext<ITodosListControllerContext>(
+	{} as ITodosListControllerContext
 );
 
-const initialConfig = {
+const initialConfig: IInitialConfig = {
 	sortProperties: { field: 'createdat', sortAscending: true },
 	filter: {},
-	searchBy: null,
-	viewComplexTable: false
 };
 
 const TodosListController = () => {
 	const [config, setConfig] = React.useState<IInitialConfig>(initialConfig);
-
-	const { title, type, typeMulti } = todosApi.getSchema();
-	const todosSchReduzido = { title, type, typeMulti, createdat: { type: Date, label: 'Criado em' } };
 	const navigate = useNavigate();
 
 	const { sortProperties, filter } = config;
-	const sort = {
-		[sortProperties.field]: sortProperties.sortAscending ? 1 : -1
-	};
+	const sort = { [sortProperties.field]: sortProperties.sortAscending ? 1 : -1 };
 
 	const { loading, todoss } = useTracker(() => {
-		const subHandle = todosApi.subscribe('todosList', filter, {
-			sort
-		});
-
+		const subHandle = todosApi.subscribe('todosList', filter, { sort });
 		const todoss = subHandle?.ready() ? todosApi.find(filter, { sort }).fetch() : [];
 		return {
 			todoss,
 			loading: !!subHandle && !subHandle.ready(),
-			total: subHandle ? subHandle.total : todoss.length
 		};
 	}, [config]);
 
@@ -66,13 +50,14 @@ const TodosListController = () => {
 		navigate(`/todos/create/${newDocumentId}`);
 	}, []);
 
-	const onDeleteButtonClick = useCallback((row: any) => {
-		todosApi.remove(row);
+	const onDeleteButtonClick = useCallback((todo: ITodos) => {
+		todosApi.remove(todo);
 	}, []);
 
-  const onToggleComplete = useCallback((todo: ITodos) => {
-    todosApi.update({ ...todo, isCompleted: !todo.isCompleted }); // Enviando o documento completo pq o server não espera updates parciais
-  }, []);
+	const onToggleComplete = useCallback((todo: ITodos) => {
+		// Enviando o documento completo pois o servidor não aceita updates parciais
+		todosApi.update({ ...todo, isCompleted: !todo.isCompleted });
+	}, []);
 
 	const onChangeTextField = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
 		const { value } = event.target;
@@ -85,31 +70,14 @@ const TodosListController = () => {
 		return () => clearTimeout(delayedSearch);
 	}, []);
 
-	const onSelectedCategory = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-		const { value } = event.target;
-		if (!value) {
-			setConfig((prev) => ({
-				...prev,
-				filter: {
-					...prev.filter,
-					type: { $ne: null }
-				}
-			}));
-			return;
-		}
-		setConfig((prev) => ({ ...prev, filter: { ...prev.filter, type: value } }));
-	}, []);
-
-	const providerValues: ITodosListContollerContext = useMemo(
+	const providerValues: ITodosListControllerContext = useMemo(
 		() => ({
 			onAddButtonClick,
 			onDeleteButtonClick,
-      onToggleComplete,
-			todoList: todoss,
-			schema: todosSchReduzido,
-			loading,
+			onToggleComplete,
 			onChangeTextField,
-			onChangeCategory: onSelectedCategory
+			todoList: todoss,
+			loading,
 		}),
 		[todoss, loading]
 	);

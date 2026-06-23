@@ -1,4 +1,3 @@
-// region Imports
 import { ProductBase } from '../../../api/productBase';
 import { todosSch, ITodos } from './todosSch';
 

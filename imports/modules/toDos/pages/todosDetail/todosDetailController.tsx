@@ -73,7 +73,7 @@ const TodosDetailController = () => {
 				onSubmit,
 				changeToEdit
 			}}>
-			{<TodosDetailView />}
+		  <TodosDetailView />
 		</TodosDetailControllerContext.Provider>
 	);
 };

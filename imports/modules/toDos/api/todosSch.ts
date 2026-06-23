@@ -15,22 +15,22 @@ export const todosSch: ISchema<ITodos> = {
 		optional: true
 	},
   isPersonal: {
-    type: Boolean,
-    label: 'Pessoal',
-    defaultValue: true,
-    optional: false
-  },
-  isCompleted: {
-    type: Boolean,
-    label: 'Concluída',
-    defaultValue: false,
-    optional: true
-  }
+		type: Boolean,
+		label: 'Pessoal',
+		defaultValue: true,
+		optional: false
+	},
+	isCompleted: {
+		type: Boolean,
+		label: 'Concluída',
+		defaultValue: false,
+		optional: true
+	}
 };
 
 export interface ITodos extends IDoc {
-  name: string;
-  description: string;
-  isPersonal: boolean;
-  isCompleted: boolean;
+	name: string;
+	description: string;
+	isPersonal: boolean;
+	isCompleted: boolean;
 }

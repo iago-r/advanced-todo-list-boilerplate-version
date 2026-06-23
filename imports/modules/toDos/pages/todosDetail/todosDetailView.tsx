@@ -52,8 +52,8 @@ const TodosDetailView = () => {
 							showNumberCharactersTyped
 							max={600}
 						/>
-            <SysSwitch name="isPersonal" />
-          </FormColumn>
+						<SysSwitch name="isPersonal" />
+					</FormColumn>
 				</Body>
 				<Footer>
 					{!isView && (
@@ -69,40 +69,3 @@ const TodosDetailView = () => {
 };
 
 export default TodosDetailView;
-
-// import { SysLoading } from '../../../../ui/components/sysLoading/sysLoading';
-
-// </SysForm>
-//   {controller.loading ? (
-//   <SysLoading size="large" label="Carregando..." />
-//     ): (
-//       <SysForm
-//         mode={state as 'create' | 'view' | 'edit'}
-//         schema={controller.schema}
-//         doc={controller.document}
-//         onSubmit={controller.onSubmit}
-//         loading={controller.loading}>
-//         <Body>
-//           <FormColumn>
-//             <SysTextField name="name" placeholder="Ex.: Tarefa XX" />
-//             <SysTextField
-//               name="description"
-//               placeholder="Acrescente informações sobre a tarefa (5 linhas)"
-//               multiline
-//               rows={5}
-//               showNumberCharactersTyped
-//               max={600}
-//             />
-//             <SysSwitch name="isPersonal" />
-//           </FormColumn>
-//         </Body>
-//         <Footer>
-//           {!isView && (
-//             <Button variant="outlined" startIcon={<SysIcon name={'close'} />} onClick={controller.closePage}>
-//               Cancelar
-//             </Button>
-//           )}
-//           <SysFormButton>Salvar</SysFormButton>
-//         </Footer>
-//       </SysForm>
-//     )}
