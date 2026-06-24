@@ -33,4 +33,5 @@ export interface ITodos extends IDoc {
 	description: string;
 	isPersonal: boolean;
 	isCompleted: boolean;
+  authorName?: string;
 }

@@ -8,6 +8,7 @@ import { ITodos } from '../../api/todosSch';
 import { ISchema } from '../../../../typings/ISchema';
 import { IMeteorError } from '../../../../typings/BoilerplateDefaultTypings';
 import AppLayoutContext, { IAppLayoutContext } from '/imports/app/appLayoutProvider/appLayoutContext';
+import AuthContext from '/imports/app/authProvider/authContext';
 
 interface ITodosDetailControllerContext {
 	closePage: () => void;
@@ -16,6 +17,7 @@ interface ITodosDetailControllerContext {
 	schema: ISchema<ITodos>;
 	onSubmit: (doc: ITodos) => void;
 	changeToEdit: (id: string) => void;
+  isOwner: boolean;
 }
 
 export const TodosDetailControllerContext = createContext<ITodosDetailControllerContext>(
@@ -26,15 +28,19 @@ const TodosDetailController = () => {
 	const navigate = useNavigate();
 	const { id, state } = useContext(TodosModuleContext);
 	const { showNotification } = useContext<IAppLayoutContext>(AppLayoutContext);
+  const { user } = useContext(AuthContext);
 
-	const { document, loading } = useTracker(() => {
+	const { document, loading, isOwner } = useTracker(() => {
 		const subHandle = !!id ? todosApi.subscribe('todosDetail', { _id: id }) : null;
 		const document = id && subHandle?.ready() ? todosApi.findOne({ _id: id }) : {};
 		return {
 			document: (document as ITodos) ?? ({ _id: id } as ITodos),
-			loading: !!subHandle && !subHandle?.ready()
+			loading: !!subHandle && !subHandle?.ready(),
+      isOwner: (document as ITodos)?.createdby === user?._id
 		};
-	}, [id]);
+	}, [id, user?._id]);
+
+  console.log('isOwner:', isOwner, 'document.createdby:', document?.createdby, 'user._id:', user?._id);
 
 	const closePage = useCallback(() => {
 		navigate(-1);
@@ -44,8 +50,9 @@ const TodosDetailController = () => {
 	}, []);
 
 	const onSubmit = useCallback((doc: ITodos) => {
+    const { authorName, ...docWithoutAuthorName } = doc as any;
 		const selectedAction = state === 'create' ? 'insert' : 'update';
-		todosApi[selectedAction](doc, (e: IMeteorError) => {
+		todosApi[selectedAction](docWithoutAuthorName, (e: IMeteorError) => {
 			if (!e) {
 				closePage();
 				showNotification({
@@ -71,7 +78,8 @@ const TodosDetailController = () => {
 				loading,
 				schema: todosApi.getSchema(),
 				onSubmit,
-				changeToEdit
+				changeToEdit,
+        isOwner
 			}}>
 		  <TodosDetailView />
 		</TodosDetailControllerContext.Provider>

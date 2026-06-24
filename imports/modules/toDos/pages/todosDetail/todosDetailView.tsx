@@ -31,7 +31,8 @@ const TodosDetailView = () => {
 					{isCreate ? 'Adicionar Tarefa' : isEdit ? 'Editar Tarefa' : controller.document.name}
 				</Typography>
 				<IconButton
-					onClick={!isView ? controller.closePage : () => controller.changeToEdit(controller.document._id || '')}>
+					onClick={!isView ? controller.closePage : () => controller.changeToEdit(controller.document._id || '')}
+          disabled={isView && !controller.isOwner}>
 					{!isView ? <SysIcon name={'close'} /> : <SysIcon name={'edit'} />}
 				</IconButton>
 			</Header>

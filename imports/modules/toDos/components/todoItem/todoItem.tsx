@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import TodoItemStyle from './todoItemStyles';
 import IconButton from '@mui/material/IconButton';
 import SysIcon from '../../../../ui/components/sysIcon/sysIcon';
+import { useNavigate } from 'react-router-dom';
+import DeleteDialog from '../../../../ui/appComponents/showDialog/custom/deleteDialog/deleteDialog';
+import AppLayoutContext, { IAppLayoutContext } from '/imports/app/appLayoutProvider/appLayoutContext';
+import { ITodos } from '../../api/todosSch';
 
 const {
 	ListItem,
@@ -11,31 +15,31 @@ const {
 
 interface ITodoItem {
 	index: string;
-	content: {
-		name: string;
-		description: string;
-		authorName?: string;
-		isCompleted: boolean;
-	},
-	onItemClick?: () => void;
-	onToggleComplete?: () => void; 
-	onEdit?: () => void;
+	isOwner: boolean;
+	content: ITodos;
+	onToggleComplete?: () => void;
 	onDelete?: () => void;
 }
 
 export const TodoItem: React.FC<ITodoItem> = ({
 	index,
+	isOwner,
 	content,
-	onItemClick,
 	onToggleComplete,
-	onEdit,
 	onDelete,
 }) => {
+	const { showDialog, closeDialog, showNotification } = useContext<IAppLayoutContext>(AppLayoutContext);
+  const navigate = useNavigate();
+
 	return (
-		<ListItem key={index} onClick={onItemClick}>
-			<Checkbox 
+		<ListItem 
+      key={index} 
+      onClick={() => navigate('/todos/view/' + content._id)}
+      >
+			<Checkbox
 				checked={content.isCompleted}
-				onClick={(event) => event.stopPropagation()} 
+				disabled={!isOwner}
+				onClick={(event) => event.stopPropagation()}
 				onChange={() => onToggleComplete?.()}
 			/>
 			<ListItemText
@@ -47,18 +51,32 @@ export const TodoItem: React.FC<ITodoItem> = ({
 				}}
 			/>
 			<IconButton
-				id={'basic-button'}
+				id={'edit-button'}
+				disabled={!isOwner}
 				onClick={(event) => {
 					event.stopPropagation();
-					onEdit?.();
+					navigate('/todos/edit/' + content._id)
 				}}>
 				<SysIcon name={'edit'} />
 			</IconButton>
 			<IconButton
-				id={'basic-button'}
+				id={'delete-button'}
+				disabled={!isOwner}
 				onClick={(event) => {
 					event.stopPropagation();
-					onDelete?.();
+					DeleteDialog({
+						showDialog,
+						closeDialog,
+						title: `Excluir tarefa ${content.name}`,
+						message: `Tem certeza que deseja excluir a tarefa "${content.name}"?`,
+						onDeleteConfirm: () => {
+							onDelete?.();
+							showNotification({
+								type: 'success',
+								message: 'Tarefa excluída com sucesso!'
+							});
+						}
+					});
 				}}>
 				<SysIcon name={'delete'} />
 			</IconButton>

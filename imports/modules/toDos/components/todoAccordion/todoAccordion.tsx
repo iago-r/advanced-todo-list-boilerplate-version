@@ -3,13 +3,11 @@ import Typography from '@mui/material/Typography';
 import AccordionStyle from './todoAccordionStyles';
 import {SxProps, Theme} from '@mui/material';
 import AccordionDetails from '@mui/material/AccordionDetails';
-import Button from '@mui/material/Button';
 
 const {
   Container,
   Accordion,
   AccordionSummary,
-  AccordionActions,
 } = AccordionStyle;
 
 interface ITodoAccordion {
@@ -42,7 +40,6 @@ export const TodoAccordion: React.FC<ITodoAccordion> = ({
 	conteudo,
 	expandIcon,
 	aberta = false,
-	actions = [],
 	disabled = false,
 	posicaoIcone = 'inicio',
 	sxMap
@@ -67,19 +64,9 @@ export const TodoAccordion: React.FC<ITodoAccordion> = ({
 					sx={sxMap?.acordionSumamry}>
 					<Typography variant="h5">{titulo}</Typography>
 				</AccordionSummary>
-
 				<AccordionDetails sx={sxMap?.acordionDetail}>
 					{conteudo}
 				</AccordionDetails>
-
-				<AccordionActions sx={sxMap?.acordionActions}>
-					{actions.length > 0 &&
-						actions.map((acao, index) => (
-							<Button onClick={acao.acao} key={index} sx={acao.sxAction?.button}>
-								<Typography sx={acao.sxAction?.textButton}>{acao.tituloAcao}</Typography>
-							</Button>
-						))}
-				</AccordionActions>
 			</Accordion>
 		</Container>
 	);

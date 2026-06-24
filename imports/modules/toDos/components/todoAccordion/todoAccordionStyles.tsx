@@ -1,6 +1,5 @@
 import { ElementType } from 'react';
 import Accordion, { AccordionProps } from '@mui/material/Accordion';
-import AccordionActions, { AccordionActionsProps } from '@mui/material/AccordionActions';
 import AccordionSummary, { AccordionSummaryProps } from '@mui/material/AccordionSummary';
 import Box, { BoxProps } from '@mui/material/Box';
 import { styled } from '@mui/material/styles';
@@ -10,7 +9,6 @@ interface ITodoAccordion {
 	Container: ElementType<BoxProps>;
 	Accordion: ElementType<AccordionProps>;
 	AccordionSummary: ElementType<ISummaryProps>;
-	AccordionActions: ElementType<AccordionActionsProps>;
 }
 
 interface ISummaryProps extends AccordionSummaryProps {
@@ -35,10 +33,6 @@ const AccordionStyle: ITodoAccordion = {
 		flexDirection: posicaoIcone === 'inicio' ? 'row-reverse' : 'row',
 		gap: sysSizing.spacingFixedSm
 	})),
-
-	AccordionActions: styled(AccordionActions)(() => ({
-		display: 'flex'
-	}))
 };
 
 export default AccordionStyle;

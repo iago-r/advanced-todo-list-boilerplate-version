@@ -55,8 +55,8 @@ const TodosListController = () => {
 	}, []);
 
 	const onToggleComplete = useCallback((todo: ITodos) => {
-		// Enviando o documento completo pois o servidor não aceita updates parciais
-		todosApi.update({ ...todo, isCompleted: !todo.isCompleted });
+    const { authorName, ...docWithoutAuthorName } = todo as any;
+    todosApi.update({ ...docWithoutAuthorName, isCompleted: !todo.isCompleted });
 	}, []);
 
 	const onChangeTextField = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {

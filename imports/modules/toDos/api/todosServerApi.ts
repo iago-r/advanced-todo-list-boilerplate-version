@@ -1,3 +1,4 @@
+import { Meteor } from 'meteor/meteor';
 import { Recurso } from '../config/recursos';
 import { todosSch, ITodos } from './todosSch';
 import { getUserServer, userprofileServerApi } from '../../../modules/userprofile/api/userProfileServerApi';
@@ -57,7 +58,8 @@ class TodosServerApi extends ProductServerBase<ITodos> {
 					name: 1,
 					description: 1,
 					isPersonal: 1,
-					isCompleted: 1
+					isCompleted: 1,
+          createdby: 1
 				}
 			});
 		});
@@ -67,6 +69,31 @@ class TodosServerApi extends ProductServerBase<ITodos> {
 		docObj.isCompleted = false;
 		return super.beforeInsert(docObj, context);
 	}
+
+	async beforeUpdate(docObj: Partial<ITodos>, context: IContext) {
+		const existing = await this
+			.getCollectionInstance()
+			.findOneAsync({ _id: docObj._id });
+
+		if (existing.createdby !== context.user._id) {
+			throw new Meteor.Error('Acesso negado', 'Você só pode alterar tarefas que você criou.');
+		}
+
+		return super.beforeUpdate(docObj, context);
+	}
+
+	async beforeRemove(docObj: Partial<ITodos>, context: IContext) {
+		const existing = await this
+			.getCollectionInstance()
+			.findOneAsync({ _id: docObj._id });
+
+		if (existing.createdby !== context.user._id) {
+			throw new Meteor.Error('Acesso negado', 'Você só pode remover tarefas que você criou.');
+		}
+
+		return super.beforeRemove(docObj, context);
+	}
+
 }
 
 export const todosServerApi = new TodosServerApi();
