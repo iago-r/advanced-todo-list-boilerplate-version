@@ -63,6 +63,46 @@ class TodosServerApi extends ProductServerBase<ITodos> {
 				}
 			});
 		});
+
+
+
+		this.addTransformedPublication(
+			'todosRecentList',
+			async (filter = {}) => {
+				const user = await getUserServer();
+
+				const visibilityFilter = {
+					$or: [
+						{ isPersonal: { $ne: true } },
+						{ isPersonal: true, createdby: user._id }
+					]
+				};
+
+				return this.defaultListCollectionPublication(
+					{ ...filter, ...visibilityFilter }, 
+					{
+						projection: { 
+              name: 1,
+              isPersonal: 1,
+              isCompleted: 1,
+              createdby: 1
+						},
+            sort: { lastupdate: -1 },
+            limit: 5
+					}
+				);
+			},
+			async (doc: ITodos & { authorName: string }) => {
+				const userProfileDoc = await userprofileServerApi
+					.getCollectionInstance()
+					.findOneAsync({ _id: doc.createdby });
+					
+				return { 
+					...doc,
+					authorName: userProfileDoc?.username
+				};
+			}
+		);
 	}
 
 	async beforeInsert(docObj: ITodos, context: IContext) {

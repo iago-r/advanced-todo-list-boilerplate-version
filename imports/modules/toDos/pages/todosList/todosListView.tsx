@@ -95,6 +95,11 @@ const TodosListView = () => {
 				startIcon={<SysIcon name={'add'} />}
 				fixed={true}
 				onClick={controller.onAddButtonClick}
+        sx={{
+          left: '50%',
+          transform: 'translateX(-50%)',
+          right: 'auto'
+        }}
 			/>
 		</Container>
 	);

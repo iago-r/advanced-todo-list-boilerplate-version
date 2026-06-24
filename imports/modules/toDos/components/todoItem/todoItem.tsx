@@ -47,7 +47,7 @@ export const TodoItem: React.FC<ITodoItem> = ({
 				secondary={"Criada por " + (content.authorName ?? "Usuário Desconhecido")}
 				sx={{
 					textDecoration: content.isCompleted ? 'line-through' : 'none',
-					opacity: content.isCompleted ? 0.6 : 1
+					opacity: content.isCompleted || !isOwner ? 0.6 : 1
 				}}
 			/>
 			<IconButton
