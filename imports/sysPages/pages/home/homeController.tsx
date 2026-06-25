@@ -1,4 +1,5 @@
 import React, { useCallback } from 'react';
+import { Meteor } from 'meteor/meteor';
 import Home from './home';
 import { useTracker } from 'meteor/react-meteor-data';
 import { todosApi } from '/imports/modules/toDos/api/todosApi';
@@ -23,9 +24,9 @@ const HomeController = () => {
 	const { loading, recentTodos } = useTracker(() => {
 		const subHandle = todosApi.subscribe('todosRecentList');
 		const recentTodos = subHandle?.ready() 
-			? todosApi.find({}, { sort: { lastupdate: -1 }, limit: 5 }).fetch()
+			? todosApi.find({}, { sort: { createdat: -1 }, limit: 5 }).fetch()
 			: [];
-
+		
 		return {
 			recentTodos,
 			loading: !!subHandle && !subHandle.ready(),

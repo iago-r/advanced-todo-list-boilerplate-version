@@ -85,9 +85,10 @@ class TodosServerApi extends ProductServerBase<ITodos> {
               name: 1,
               isPersonal: 1,
               isCompleted: 1,
+              createdat: 1,
               createdby: 1
 						},
-            sort: { lastupdate: -1 },
+            sort: { createdat: -1 },
             limit: 5
 					}
 				);
