@@ -1,16 +1,16 @@
 import { ElementType } from 'react';
 import { styled } from '@mui/material/styles';
-import  Box,{ BoxProps } from '@mui/material/Box';
-import { sysSizing } from '/imports/ui/materialui/styles';
-import {SysSectionPaddingXY} from "/imports/ui/layoutComponents/sysLayoutComponents";
+import Box, { BoxProps } from '@mui/material/Box';
+import { sysSizing } from '../../../../ui/materialui/styles';
+import { SysSectionPaddingXY } from '../../../../ui/layoutComponents/sysLayoutComponents';
 
-interface IAniversarioListStyles {
+interface ITodosListStyles {
 	Container: ElementType<BoxProps>;
 	LoadingContainer: ElementType<BoxProps>;
 	SearchContainer: ElementType<BoxProps>;
 }
 
-const AniversarioListStyles: IAniversarioListStyles = {
+const TodosListStyles: ITodosListStyles = {
 	Container: styled(SysSectionPaddingXY)(() => ({
 		display: 'flex',
 		flexDirection: 'column',
@@ -20,7 +20,7 @@ const AniversarioListStyles: IAniversarioListStyles = {
 		height: '100vh',
 		overflow: 'auto',
 		gap: sysSizing.spacingFixedMd,
-    marginBottom: sysSizing.contentFabDistance
+		marginBottom: sysSizing.contentFabDistance
 	})),
 	LoadingContainer: styled(Box)(({ theme }) => ({
 		width: '100%',
@@ -38,11 +38,13 @@ const AniversarioListStyles: IAniversarioListStyles = {
 		justifyContent: 'flex-start',
 		alignItems: 'flex-end',
 		maxWidth: '616px',
-		gap: sysSizing.spacingFixedMd,
+    gap: sysSizing.spacingFixedMd,
+    padding: sysSizing.spacingRemSm,
 		[theme.breakpoints.down('sm')]: {
-			flexDirection: 'column'
+			flexDirection: 'column',
+      padding: sysSizing.spacingRemSm 
 		}
-	}))
+	})),
 };
 
-export default AniversarioListStyles;
+export default TodosListStyles;

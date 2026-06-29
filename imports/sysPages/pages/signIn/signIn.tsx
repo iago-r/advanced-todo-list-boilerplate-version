@@ -1,6 +1,6 @@
 import React, { useContext, useEffect } from 'react';
 import SignInStyles from './signInStyles';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import SysTextField from '../../../ui/components/sysFormFields/sysTextField/sysTextField';
 import SysForm from '../../../ui/components/sysForm/sysForm';
 import SysFormButton from '../../../ui/components/sysFormFields/sysFormButton/sysFormButton';
@@ -58,7 +58,7 @@ const SignInPage: React.FC = () => {
 						<FormWrapper>
 							<SysTextField name="email" label="Email" fullWidth placeholder="Digite seu email" />
 							<SysTextField label="Senha" fullWidth name="password" placeholder="Digite sua senha" type="password" />
-							<Button variant="text" sx={{ alignSelf: 'flex-end' }} onClick={handleForgotPassword}>
+							<Button variant="text" sx={{ alignSelf: 'center' }} onClick={handleForgotPassword}>
 								<Typography variant="link">Esqueci minha senha</Typography>
 							</Button>
 							<Box />
@@ -67,6 +67,10 @@ const SignInPage: React.FC = () => {
 							</SysFormButton>
 						</FormWrapper>
 					</SysForm>
+          <Box>
+						Não tem uma conta?{' '}
+						<Link to="/signup" style={{ textDecoration: 'none', color: 'inherit' }}>Cadastre-se</Link>
+					</Box>
 				</FormContainer>
 
 				<Box component="img" src="/images/wireframe/synergia-logo.svg" sx={{ width: '100%', maxWidth: '400px' }} />

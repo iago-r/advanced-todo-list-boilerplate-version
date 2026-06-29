@@ -409,11 +409,13 @@ class UserProfileServerApi extends ProductServerBase<IUserProfile> {
 
 	async afterInsert(doc: IUserProfileEstendido, _context: IContext) {
 		if (Meteor.isServer) {
-			if (doc.password) {
-				Accounts.sendVerificationEmail(doc._id!);
-			} else {
-				Accounts.sendEnrollmentEmail(doc._id!);
-			}
+      // Verificação de email desativada temporariamente (para a tarefa BMR-03).
+      // TODO: Reativar ao configurar um serviço SMTP 
+			// if (doc.password) {
+			// 	Accounts.sendVerificationEmail(doc._id!);
+			// } else {
+			// 	Accounts.sendEnrollmentEmail(doc._id!);
+			// }
 		}
 	}
 

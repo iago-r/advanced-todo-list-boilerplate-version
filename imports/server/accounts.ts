@@ -253,6 +253,15 @@ Meteor.startup(() => {
 		forbidClientAccountCreation: process.env.ALLOW_CLIENT_ACCOUNT_CREATION !== 'true'
 	});
 
+  // Email verificado automaticamente ao cadastrar.
+  // TODO: Remover ao configurar um serviço SMTP
+  Accounts.onCreateUser((options, user) => {
+    if (user.emails && user.emails.length > 0) {
+      user.emails[0].verified = true;
+    }
+    return user;
+  });
+
 	Accounts.validateLoginAttempt(({ user, allowed }: { user: Meteor.User; allowed: boolean }) => {
 		if (!allowed) return allowed;
 
@@ -271,9 +280,11 @@ Meteor.startup(() => {
 			};
 			return validateLoginGoogle(user);
 		}
-		if (!user || !user.emails || !user.emails[0].verified) {
-			throw new Meteor.Error('Email ñao verificado', `Este email ainda não foi verificado!`);
-		}
+    // Verificação de email desativada temporariamente (para a tarefa BMR-03).
+    // TODO: Reativar ao configurar um serviço SMTP 
+		// if (!user || !user.emails || !user.emails[0].verified) { 
+		// 	throw new Meteor.Error('Email ñao verificado', `Este email ainda não foi verificado!`);
+		// }
 		return true;
 	});
 });
