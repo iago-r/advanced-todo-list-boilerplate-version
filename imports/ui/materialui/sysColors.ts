@@ -124,7 +124,7 @@ const sysLightPalette: PaletteOptions = {
 
   primary: {
     light: sysPurpleColors[70],
-    main: sysPurpleColors[50]!,
+    main: sysGreyColors[15]!,
     dark: sysPurpleColors[30],
     contrastText: sysCommonColors.white
   },
@@ -200,8 +200,13 @@ const sysLightPalette: PaletteOptions = {
     bg3: sysGreyColors[90],
   },
   sysAction: {
+    // Para testes 
+    // sysRedColors[60],
+    // para cores default dos botoes
     primary: sysPurpleColors[50],
-    primaryHover: sysPurpleColors[30],
+    // primary: sysPurpleColors[50],
+    // para opcões selecionadas (menu) e para hovers (de botões e links)
+    primaryHover: sysPurpleColors[40],
     primaryBgHover: sysPurpleColors.transparent,
     primaryIcon: sysPurpleColors.grey,
     primaryContrastText: sysCommonColors.white,

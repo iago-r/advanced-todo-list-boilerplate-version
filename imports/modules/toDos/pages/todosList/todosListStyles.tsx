@@ -38,8 +38,8 @@ const TodosListStyles: ITodosListStyles = {
 		justifyContent: 'flex-start',
 		alignItems: 'flex-end',
 		maxWidth: '616px',
-		gap: sysSizing.spacingRemMd,
-    padding: sysSizing.spacingRemMd,
+    gap: sysSizing.spacingFixedMd,
+    padding: sysSizing.spacingRemSm,
 		[theme.breakpoints.down('sm')]: {
 			flexDirection: 'column',
       padding: sysSizing.spacingRemSm 

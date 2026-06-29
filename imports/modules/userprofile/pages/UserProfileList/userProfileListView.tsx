@@ -23,7 +23,7 @@ const UserProfileLisView = () => {
 		},
 		{
 			value: 'Administrador',
-			label: 'Admnistrador'
+			label: 'Administrador'
 		},
 		{
 			value: 'Usuario',
@@ -74,10 +74,15 @@ const UserProfileLisView = () => {
 				})}
 			<SysFab
 				variant="extended"
-				text="Adicionar"
+				text="Adicionar Usuário"
 				startIcon={<SysIcon name={'add'} />}
 				fixed={true}
 				onClick={onAddButtonClick}
+        sx={{
+          left: '50%',
+          transform: 'translateX(-50%)',
+          right: 'auto'
+        }}
 			/>
 		</Container>
 	);

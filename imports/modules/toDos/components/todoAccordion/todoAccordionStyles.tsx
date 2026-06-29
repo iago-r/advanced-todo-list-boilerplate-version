@@ -22,13 +22,11 @@ const AccordionStyle: ITodoAccordion = {
 		alignItems: 'center',
 		width: '100%'
 	})),
-
 	Accordion: styled(Accordion)(() => ({
 		width: '100%',
 		borderRadius: `${sysSizing.spacingFixedXs} !important`,
     boxShadow: 'none'
 	})),
-
 	AccordionSummary: styled(AccordionSummary)<ISummaryProps>(({ posicaoIcone }) => ({
 		flexDirection: posicaoIcone === 'inicio' ? 'row-reverse' : 'row',
 		gap: sysSizing.spacingFixedSm
