@@ -4,7 +4,7 @@
 [![React-Library](https://img.shields.io/badge/React-Library-61DAFB?style=flat&logo=react&logoColor=white)](https://react.dev/)
 [![MUI-UI Library](https://img.shields.io/badge/MaterialUI-UI%20Library-blue?style=flat&logo=mui&logoColor=white)](https://mui.com/)
 
-This project implements a task management web app, in which users can create an account, edit their profile, and create, view, update, and remove Tasks. Each task can be private or public; editing is only allowed by the creator.
+This project implements a task management web app, in which users can create an account and create, view, update, and remove Tasks. Each task can be private or public; editing is only allowed by the creator.
 
 The system offers two main areas:
 
